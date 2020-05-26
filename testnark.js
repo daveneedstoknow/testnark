@@ -77,7 +77,7 @@ function dumpData(buildData, oldestBuildNumber) {
 
 function addBuildData(buildData, buildNumber, last) {
   var url =
-    'http://jenkins.ci.transficc.net:8080/job/' +
+    jenkins_url + '/job/' +
     project +
     '/' +
     buildNumber +
