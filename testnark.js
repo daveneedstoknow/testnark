@@ -3,37 +3,26 @@ const http = require('http')
 args = process.argv.slice(2);
 
 const jenkins_url = args[0]
-const project = 1 in args ? args[1] : 'acceptance-test' 
-const BUILDS_TO_REPORT = 2 in args ? Number(args[2]) : 10
+const BUILDS_TO_REPORT = 1 in args ? Number(args[1]) : 10
+var projects = args.slice(2); 
 
-console.log(project + " " + BUILDS_TO_REPORT);
 
-const lastBuildNumber =
-  jenkins_url + '/job/' +
-  project +
-  '/lastCompletedBuild/buildNumber/api/json'
-
+console.log(projects + " " + BUILDS_TO_REPORT);
 
 const RESULT_TYPE = {
-  PASSED: '\x1b[32mpass',
-  FIXED: '\x1b[32mpass',
-  REGRESSION: '\x1b[31mFAIL',
-  FAILED: '\x1b[31mFAIL',
-  SKIPPED: '\x1b[32mskip',
+  PASSED: '\x1b[32mP',
+  FIXED: '\x1b[32mP',
+  REGRESSION: '\x1b[31mF',
+  FAILED: '\x1b[31mF',
+  SKIPPED: '\x1b[32mS',
 }
 
 function mapElement(value, key, map) {
   if (value['FAILED'] > 0) console.log(key + ':' + value['FAILED'])
 }
 
-function padBuildNumber(number) {
-  if (number <= 999999) {
-    number = ('00000' + number).slice(-6)
-  }
-  return number
-}
 
-function dumpData(buildData, oldestBuildNumber) {
+function dumpData(buildData) {
   byErrorCount = []
   buildData.forEach((value, key) => {
     var index = 9999999 - value['FAILED']
@@ -44,49 +33,49 @@ function dumpData(buildData, oldestBuildNumber) {
     byErrorCount[index] = entryArray
   })
 
-	var headings = "";
-  for (
-        var buildNumber = oldestBuildNumber + BUILDS_TO_REPORT;
-        buildNumber >= oldestBuildNumber ;
-        buildNumber--
-      ) {
-		headings += padBuildNumber(buildNumber) + " ";
-
-	}
-		console.log(headings);
-
   byErrorCount.forEach(entrySet => {
     entrySet.forEach(entry => {
       var output = ''
       var value = entry.val
       for (
-        var buildNumber = oldestBuildNumber + BUILDS_TO_REPORT;
-        buildNumber >= oldestBuildNumber ;
+        var buildNumber = BUILDS_TO_REPORT;
+        buildNumber >= 0 ;
         buildNumber--
       ) {
-          var buildNumberIndex = padBuildNumber(buildNumber)
-          var result = (buildNumberIndex in value) ? RESULT_TYPE[value[buildNumberIndex]] : "    " ;
-          output += ' ' + result + '  '
+          var buildNumberIndex = buildNumber
+          var result = (buildNumberIndex in value) ? RESULT_TYPE[value[buildNumberIndex]] : " " ;
+          output += result
       }
 
-      output += '\x1b[0m' + entry.key
+      output += '\x1b[0m' + ("" + entry.key.split(".").slice(3)).replace(",",".")
       console.log(output)
     })
   })
 }
 
-function addBuildData(buildData, buildNumber, last) {
+function addBuildData(buildData, projects, buildNumber, last) {
+  
+
+console.log("project:" + projects[0] + " build: "+ buildNumber + " last: " + last);
+
+
+  if (buildNumber < last) {	
+    if (projects.length == 1)
+	{
+	    dumpData(buildData)
+    		return
+ 	}
+
+    addProject(buildData, projects.slice(1))
+    return;
+  }
+
   var url =
     jenkins_url + '/job/' +
-    project +
+    projects[0] +
     '/' +
     buildNumber +
     '/testReport/api/json?tree=suites[cases[className,name,status]]'
-
-  if (buildNumber < last) {
-    dumpData(buildData, last)
-    return
-  }
   //console.log(url)
 
   http.get(url, res => {
@@ -104,39 +93,55 @@ function addBuildData(buildData, buildNumber, last) {
         json = JSON.parse(body)
         json.suites.forEach(function (suite) {
           suite.cases.forEach(function (aCase) {
-            var key = aCase.className + '.' + aCase.name
+            var key = aCase.className + '.' + aCase.name + " " + projects[0]
             var results
             if (buildData.has(key)) results = buildData.get(key)
             else {
               results = new Array()
               results['FAILED'] = 0
             }
-            results[padBuildNumber(buildNumber)] = aCase.status
+            results[buildNumber-last] = aCase.status
 
             if (
               aCase.status != 'PASSED' &&
               aCase.status != 'FIXED' &&
               aCase.status != 'SKIPPED'
             )
-              results['FAILED'] = results['FAILED'] + (buildNumber - last)
+		{
+		
+              		results['FAILED'] = results['FAILED'] + (buildNumber - last)
+			console.log(key + ":" + results['FAILED'] + " " + results[buildNumber-last])
 
+		
+		}
             buildData.set(key, results)
           })
         })
         console.log('processed:' + buildNumber)
       } catch (e) {
-        console.log("skipping:" + buildNumber)
+        console.log("skipping:" + buildNumber  + "E:" + e)
       }
 
-      addBuildData(buildData, buildNumber - 1, last)
+      addBuildData(buildData, projects, buildNumber - 1, last)
     })
   })
 }
 
-function lastBuilds(startBuild) {
-  var buildData = new Map()
-  addBuildData(buildData, startBuild, startBuild - BUILDS_TO_REPORT)
+function lastBuilds(buildData, projects, startBuild) {
+
+  addBuildData(buildData, projects, startBuild, startBuild - BUILDS_TO_REPORT)
 }
+
+function addProject(buildData, projects)
+{
+  console.log("PROJECT:" + projects[0]);
+
+
+var lastBuildNumber =
+  jenkins_url + '/job/' +
+  projects[0] +
+  '/lastCompletedBuild/buildNumber/api/json';
+
 
 http.get(lastBuildNumber, res => {
   res.setEncoding('utf8')
@@ -146,7 +151,10 @@ http.get(lastBuildNumber, res => {
   })
 
   res.on('end', () => {
-    lastBuilds(body)
+    lastBuilds(buildData, projects, body)
   })
 })
+}
+
+addProject(new Map(),projects);
 
