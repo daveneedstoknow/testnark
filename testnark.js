@@ -17,18 +17,15 @@ const RESULT_TYPE = {
   SKIPPED: '\x1b[32mS',
 }
 
-function mapElement(value, key, map) {
-  if (value['FAILED'] > 0) console.log(key + ':' + value['FAILED'])
-}
-
 
 function dumpData(buildData) {
+  console.log("RESULTS")
+
   byErrorCount = []
   buildData.forEach((value, key) => {
     var index = 9999999 - value['FAILED']
     var entryArray =
       typeof byErrorCount[index] === 'undefined' ? [] : byErrorCount[index]
-    //delete value["FAILED"]
     entryArray.push({ key: key, val: value })
     byErrorCount[index] = entryArray
   })
@@ -47,7 +44,7 @@ function dumpData(buildData) {
           output += result
       }
 
-      output += '\x1b[0m' + ("" + entry.key.split(".").slice(3)).replace(",",".")
+      output += '\x1b[0m' + (" " + entry.key.split(".").slice(-2)).replace(/,/gi,".")
       console.log(output)
     })
   })
@@ -56,7 +53,7 @@ function dumpData(buildData) {
 function addBuildData(buildData, projects, buildNumber, last) {
   
 
-console.log("project:" + projects[0] + " build: "+ buildNumber + " last: " + last);
+//console.log("project:" + projects[0] + " build: "+ buildNumber + " last: " + last);
 
 
   if (buildNumber < last) {	
@@ -76,7 +73,7 @@ console.log("project:" + projects[0] + " build: "+ buildNumber + " last: " + las
     '/' +
     buildNumber +
     '/testReport/api/json?tree=suites[cases[className,name,status]]'
-  //console.log(url)
+
 
   http.get(url, res => {
     res.setEncoding('utf8')
@@ -86,8 +83,6 @@ console.log("project:" + projects[0] + " build: "+ buildNumber + " last: " + las
     })
 
     res.on('end', () => {
-      //console.log('end: ' + buildNumber)
-      //	console.log(body);
       var json
       try {
         json = JSON.parse(body)
@@ -109,15 +104,12 @@ console.log("project:" + projects[0] + " build: "+ buildNumber + " last: " + las
             )
 		{
 		
-              		results['FAILED'] = results['FAILED'] + (buildNumber - last)
-			console.log(key + ":" + results['FAILED'] + " " + results[buildNumber-last])
-
-		
+              		results['FAILED'] = results['FAILED'] + (1 + (buildNumber - last))
 		}
             buildData.set(key, results)
           })
         })
-        console.log('processed:' + buildNumber)
+
       } catch (e) {
         console.log("skipping:" + buildNumber  + "E:" + e)
       }
