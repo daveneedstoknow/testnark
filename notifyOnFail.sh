@@ -32,7 +32,7 @@ echo "uri=${uri}"
 
 while :
 do
-	sleep 30
+	sleep 15
 	lastBuild=$(curl -s "${uri}/job/${job}/lastCompletedBuild/api/json")
 	status=$(echo $lastBuild | jq -r '.result')
 	buildNumber=$(echo $lastBuild | jq -r '.id')
