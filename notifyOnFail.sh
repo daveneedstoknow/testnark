@@ -4,6 +4,7 @@
 user=$USER
 job="acceptance-test"
 uri="http://localhost:8080"
+results=testReport
 
 for ARGUMENT in "$@"
 do
@@ -15,6 +16,7 @@ do
             user)              user=${VALUE} ;;
             job)    job=${VALUE} ;;
             uri)    uri=${VALUE} ;;
+            results)    results=${VALUE} ;;
             *)
     esac
 
@@ -42,7 +44,7 @@ do
 	echo $previousBuildNumber
 	wasMe=$(echo $lastBuild | jq -e ".changeSet.items[].authorEmail | match(\"${user}\")" > /dev/null && echo 0 || echo 1)
 	if [ $status != "SUCCESS" ] && [ $wasMe -eq 0 ]; then
-		notify-send -u critical "$job" "Build #${buildNumber} FAILED\ryou are a possible culprit\r${uri}/job/${job}/lastCompletedBuild/testReport"
+		notify-send -u critical "$job" "Build #${buildNumber} FAILED\ryou are a possible culprit\r${uri}/job/${job}/lastCompletedBuild/${results}"
 	fi;
 
 done
