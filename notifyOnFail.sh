@@ -33,7 +33,10 @@ echo "uri=${uri}"
 while :
 do
 	sleep 15
-	lastBuild=$(curl -s "${uri}/job/${job}/lastCompletedBuild/api/json")
+	url="http://jenkins.ci.transficc.net:8080/login?from=/job/${job}/lastCompletedBuild/api/json"
+	cookiefile=/var/run/user/$UID/notifyOnFailCookieFile$RANDOM.txt
+	lastBuild=$(curl -s --negotiate -u : -L -c ${cookiefile} ${url})
+	rm ${cookiefile}
 	status=$(echo $lastBuild | jq -r '.result')
 	buildNumber=$(echo $lastBuild | jq -r '.id')
 	if [[ $previousBuildNumber =~ "${buildNumber}" ]]; then
